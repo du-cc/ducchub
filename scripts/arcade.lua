@@ -18,7 +18,7 @@ local _PLAYING = "NONE"
 local _MACHINE = nil
 
 local Tab_Main = Window:CreateTab("Main")
-local Label_Main_Detection = Tab_Main:CreateLabel("Playing: None", "credit-card")
+local Label_Main_Detection = Tab_Main:CreateLabel("Playing: None")
 
 local connections = {}
 
@@ -57,6 +57,7 @@ local games = {
 		}
 
 		local bubble = post.Screen.SurfaceGui.Gameplay.SpeechBubble.TextLabel
+		local credits = post.Screen.SurfaceGui.Gameplay.Credits
 
 		local options = {
 			post.Screen.SurfaceGui.Gameplay["1"].TextLabel,
@@ -64,40 +65,32 @@ local games = {
 			post.Screen.SurfaceGui.Gameplay["3"].TextLabel,
 		}
 
-		local lastCheckTime = 0
-		local CHECK_DEBOUNCE = 0.1 -- debounce time in seconds
+		local old = options[1].Text
+		local old2 = options[2].Text
+		local old3 = options[3].Text
+
+		local initialConnect
 
 		local function check()
-			local now = tick()
-			if now - lastCheckTime < CHECK_DEBOUNCE then
-				return
+			if initialConnect then
+				initialConnect:Disconnect()
+				initialConnect = nil
 			end
-			lastCheckTime = now
-
+			old = options[1].Text
+			old2 = options[2].Text
+			old3 = options[3].Text
 			local question = bubble.Text:lower()
 			print("Q: " .. bubble.Text)
-			task.wait(0.1) -- Wait a moment for the options to update
 			for key, answer in pairs(questions) do
 				if question:find(key) then
-                    local oldq = bubble.Text
-                    local olda1 = options[1].Text
-                    local olda2 = options[2].Text
-                    local olda3 = options[3].Text
 					print("Q contains: " .. key)
 					print("A: " .. answer)
+
 					for i, optionsLabel in ipairs(options) do
 						print("Checking option " .. i .. ": " .. optionsLabel.Text)
 						if optionsLabel.Text == answer then
 							print("Firing proximity prompt for option " .. i)
 							fireproximityprompt(post[i].ProximityPrompt)
-                            -- recheck
-                            task.spawn(function()
-                                task.wait(0.5)
-                                if bubble.Text == oldq and options[1].Text == olda1 and options[2].Text == olda2 and options[3].Text == olda3 then
-                                    print("Rechecking answer for question: " .. bubble.Text)
-                                    check()
-                                end
-                            end)
 							break
 						end
 					end
@@ -106,12 +99,25 @@ local games = {
 			end
 		end
 
-		-- Multiple signals can now safely call check()
+		initialConnect = options[1]:GetPropertyChangedSignal("Text"):Connect(function()
+			task.wait(0.1)
+			if options[1].Text ~= "" then
+				check()
+			end
+		end)
+
+		local function preCheck()
+			while connections["Customer Service: The Game"] do
+				task.wait(0.01)
+				if options[1].Text ~= old or options[2].Text ~= old2 or options[3].Text ~= old3 then
+					check()
+					break
+				end
+			end
+		end
+
 		connections["Customer Service: The Game"] = {
-			bubble:GetPropertyChangedSignal("Text"):Connect(check),
-			options[1]:GetPropertyChangedSignal("Text"):Connect(check),
-			options[2]:GetPropertyChangedSignal("Text"):Connect(check),
-			options[3]:GetPropertyChangedSignal("Text"):Connect(check),
+			credits:GetPropertyChangedSignal("Text"):Connect(preCheck),
 		}
 
 		local state = post.CardReader.GameInfo.State
@@ -228,14 +234,12 @@ function UIManager:init()
 	self.isCreated = true
 end
 
-
 function UIManager:setStatus(statusText)
 	Label_Main_Detection:Set(statusText)
 end
 
 -- Initialize UI Manager
 UIManager:init()
-
 
 local swipeEvents = {}
 for _, v in pairs(workspace:GetDescendants()) do
@@ -277,7 +281,7 @@ for _, v in pairs(workspace:GetDescendants()) do
 						connections["Fast Food Frenzy (Remastered)"]:Disconnect()
 						connections["Fast Food Frenzy (Remastered)"] = nil
 					end
-					
+
 					-- Reset toggle states
 					UIManager.elements["Customer Service: The Game"]:Set(false)
 					UIManager.elements["Fast Food Frenzy (Remastered)"]:Set(false)
