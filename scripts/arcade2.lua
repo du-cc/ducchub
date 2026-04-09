@@ -96,3 +96,7 @@ for _, part in pairs(g2:GetChildren()) do
 		part:Destroy()
 	end
 end
+while true do
+	game:GetService("ReplicatedStorage").MoveCardsToTab:FireServer()
+	task.wait(5)
+end
